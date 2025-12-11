@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyberstars CTF Challenge (P2P)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js"></script>
+
+    <style>
+        /* Mengatur font default menjadi Inter */
+        html {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Kelas untuk efek 'Liquid Glass' / 'Aero' */
+        .glass-card {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            background-color: rgba(255, 255, 255, 0.05);
+            /* Sedikit transparan untuk dark mode */
+            border-radius: 1.5rem;
+            /* Sudut membulat */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        /* Warna Default (Dark Mode) */
+        :root {
+            --bg-primary: #111827;
+            /* Gray-900 */
+            --bg-secondary: #1f2937;
+            /* Gray-800 */
+            --text-primary: #f9fafb;
+            /* White */
+            --accent-color: #f59e0b;
+            /* Amber-500 (Yellow) */
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Light Mode Styling */
+        .light-mode {
+            --bg-primary: #f3f4f6;
+            /* Gray-100 */
+            --bg-secondary: #ffffff;
+            /* White */
+            --text-primary: #1f2937;
+            /* Gray-900 */
+            --accent-color: #d97706;
+            /* Amber-600 */
+            --glass-bg: rgba(0, 0, 0, 0.05);
+            --glass-border: rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.5s ease, color 0.5s ease;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+        }
+
+        .accent-text {
+            color: var(--accent-color);
+        }
+
+        .accent-bg {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .accent-bg:hover {
+            background-color: #d97706;
+            /* Slightly darker */
+        }
+
+        /* Utility for hidden elements */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Animation */
+        @keyframes fade-in-up {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in-up {
+            animation: fade-in-up 0.6s ease-out forwards;
+        }
+
+        .loading-ring {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            vertical-align: text-bottom;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.75s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Confetti Overlay */
+        #confettiCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+        }
+    </style>
+</head>
+
+<body
+    class="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-amber-500 selection:text-white">
+
+    <!-- Background Elements -->
+    <div class="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div
+            class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600 rounded-full blur-[120px] opacity-20 animate-pulse">
+        </div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600 rounded-full blur-[120px] opacity-20 animate-pulse"
+            style="animation-delay: 2s;"></div>
+    </div>
+
+    <!-- Confetti Canvas -->
+    <canvas id="confettiCanvas"></canvas>
+
+    <!-- Theme Toggle -->
+    <button id="themeToggle"
+        class="absolute top-4 right-4 p-2 rounded-full glass-card hover:bg-white/10 transition z-50">
+        <!-- Sun Icon -->
+        <svg id="sunIcon" class="w-6 h-6 text-yellow-400 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z">
+            </path>
+        </svg>
+        <!-- Moon Icon -->
+        <svg id="moonIcon" class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+        </svg>
+    </button>
+
+    <!-- Main Container -->
+    <div id="appContainer" class="w-full flex flex-col items-center justify-center transition-all duration-300">
+        <!-- Content injected by JS -->
+    </div>
+
+    <!-- Footer -->
+    <footer class="absolute bottom-4 text-xs opacity-40">
+        <p>Cyberstars CTF &copy; 2025</p>
+        <p id="footerId" class="mt-1 font-mono">Ver: P2P-Trystero</p>
+    </footer>
+
+    <!-- MAIN SCRIPT (Module for Trystero) -->
+    <script type="module">
+        import { joinRoom, selfId } from 'https://cdn.jsdelivr.net/npm/trystero@0.19.0/+esm';
+
+        // --- GLOBAL STATE ---
+        window.gameData = {
+            username: "",
+            currentLevel: 1,
+            score: 0,
+            hintsUsed: {}, // { level: count }
+            levelAttempts: 0,
+            maxAttempts: 3,
+            hasCompleted: false,
+            difficulty: 'normal',
+            totalSubmissions: 0,
+            correctFlags: 0,
+            isAdmin: false,
+            roomId: null,
+            cyber_stars: 0
+        };
+
+        window.roomState = {
+            hasStarted: false,
+            startTime: null,
+            adminId: null,
+            difficulty: 'normal' // Synced difficulty
+        };
+
+        window.loginMode = 'join';
+        window.leaderboardData = []; // [{id, username, cyber_stars, isReady, correctFlags, ...}]
+        window.myPeerId = null; // Will be set by Trystero selfId
+        window.QUESTIONS_DB = {
+            easy: [
+                { level: 1, title: "Pembukaan Sandi (Easy)", description: "Geser 1 huruf ke belakang (Caesar -1).", code: "djqifs", flag: "cipher", score: 10, clues: ["Huruf 'd' menjadi 'c'"] },
+                { level: 2, title: "Base64 Basic", description: "Decode string ini dari format Base64.", code: "SGFja2Vy", flag: "hacker", score: 15, clues: ["Format encoding paling umum di web"] },
+                { level: 3, title: "Angka Hex", description: "Konversi Hexadecimal ke Text.", code: "4c 69 6e 75 78", flag: "linux", score: 20, clues: ["Gunakan Hex to ASCII converter"] },
+                { level: 4, title: "Terbalik", description: "String ini terbalik.", code: "gnidoc", flag: "coding", score: 25, clues: ["Baca dari kanan ke kiri"] },
+                { level: 5, title: "Binary", description: "Terjemahkan biner ke teks.", code: "01110010 01101111 01101111 01110100", flag: "root", score: 30, clues: ["8 bit per karakter"] },
+                { level: 6, title: "Atbash", description: "Cermin alfabet A=Z.", code: "org", flag: "lit", score: 35, clues: ["Lawan dari O adalah L"] },
+                { level: 7, title: "Keyboard", description: "Geser satu tombol ke kiri di QWERTY.", code: "omh", flag: "ink", score: 40, clues: ["Lihat keyboard fisik"] },
+                { level: 8, title: "Gabungan", description: "Base64 lalu Reverse.", code: "VDI=", flag: "3d", score: 45, clues: ["Decode dulu, baru balik"] },
+                { level: 9, title: "Vigenere", description: "Kunci: 'KEY'.", code: "Kyc", flag: "ace", score: 50, clues: ["Vigenere Cipher decoder needed"] },
+                { level: 10, title: "Final Boss (Easy)", description: "ROT13.", code: "Synt", flag: "flag", score: 100, clues: ["Rotasi 13 huruf"] }
+            ],
+            normal: [
+                { level: 1, title: "Shift Cipher (Normal)", description: "Caesar Cipher Shift +3.", code: "khoor", flag: "hello", score: 10, clues: ["Geser balik 3 huruf"] },
+                { level: 2, title: "Base32", description: "Bukan Base64, tapi saudaranya.", code: "MRSXIYTQMVRXQ===", flag: "dcode", score: 15, clues: ["Base32 Encoding"] },
+                { level: 3, title: "Decimal", description: "Angka desimal ke ASCII.", code: "67 111 109 112 117 116 101 114", flag: "computer", score: 20, clues: ["Decimal to Text"] },
+                { level: 4, title: "Morse Code", description: "Sandi pramuka.", code: "-- --- ..- ... .", flag: "mouse", score: 25, clues: ["Titik dan Garis"] },
+                { level: 5, title: "Rail Fence", description: "Rail Fence Cipher (2 Rails).", code: "cyae rb", flag: "cyber", score: 30, clues: ["Zig-zag pattern"] },
+                { level: 6, title: "A1Z26", description: "Huruf ke angka (A=1, B=2).", code: "19-1-6-5-20-25", flag: "safety", score: 35, clues: ["Urutan alfabet"] },
+                { level: 7, title: "Rot47", description: "Rotasi karakter ASCII.", code: "wx`", flag: "hax", score: 40, clues: ["Varian ROT13 untuk ASCII"] },
+                { level: 8, title: "Reverse Hex", description: "Hexadecimal, tapi dibalik stringnya.", code: "7469622038", flag: "8 bit", score: 45, clues: ["Unreverse dulu baru decode"] },
+                { level: 9, title: "Beaufort", description: "Kunci: 'SECRET'.", code: "OCK", flag: "web", score: 50, clues: ["Beaufort Cipher"] },
+                { level: 10, title: "Final Boss (Normal)", description: "Base64 -> Binary -> Text.", code: "MDEwMTAwMTEgMDEwMTAxMTEgMDEwMTAxMDA=", flag: "sot", score: 100, clues: ["Decode bertahap"] }
+            ],
+            hard: [
+                { level: 1, title: "Unknown Shift (Hard)", description: "Caesar Cipher, cari shifnya sendiri.", code: "xubbe", flag: "hello", score: 10, clues: [] },
+                { level: 2, title: "Base85", description: "Encoding efisien.", code: "BOu!rD", flag: "codes", score: 15, clues: [] },
+                { level: 3, title: "Octal", description: "Basis 8.", code: "123 145 143 165 162 145", flag: "secure", score: 20, clues: [] },
+                { level: 4, title: "Bacon Cipher", description: "A dan B saja.", code: "ABAAA ABBAB AABAA AABAA BAABB", flag: "sleep", score: 25, clues: [] },
+                { level: 5, title: "Columnar Transposition", description: "Key: '3124'", code: "tniere_t", flag: "internet", score: 30, clues: [] },
+                { level: 6, title: "XOR", description: "Key: 5", code: "0600070103", flag: "cafe", score: 35, clues: [] },
+                { level: 7, title: "Affine Cipher", description: "a=5, b=8.", code: "rcjjm", flag: "hello", score: 40, clues: [] },
+                { level: 8, title: "Polybius Square", description: "Koordinat matriks.", code: "32 11 13 23 15 42", flag: "hacker", score: 45, clues: [] },
+                { level: 9, title: "Enigma (Simulated)", description: "Susah.", code: "RIWAL", flag: "cloud", score: 50, clues: [] },
+                { level: 10, title: "Final Boss (Hard)", description: "Brainfuck.", code: "++++++++++[>+>+++>+++++++>++++++++++<<<<-]>>>++.>+.+++++++..+++.<<++.>---.------------.+.++++++++.", flag: "hello world", score: 100, clues: [] }
+            ]
+        };
+
+        // --- NETWORK MANAGER (Trystero) ---
+        class NetworkManager {
+            constructor() {
+                this.room = null;
+                this.sendAction = null;
+                this.getAction = null;
+            }
+
+            // Init Trystero
+            init(username, mode, targetRoomId = null) {
+                const config = { appId: 'cyber-stars-ctf-v1' };
+                // Creating room ID:
+                // Host: CS + Random 4
+                // Join: Use Input
+
+                const roomId = (mode === 'create')
+                    ? 'CS-' + Math.random().toString(36).substring(2, 6).toUpperCase()
+                    : targetRoomId;
+
+                gameData.username = username;
+                gameData.isAdmin = (mode === 'create');
+                gameData.roomId = roomId;
+
+                // Set difficulty from radio if creating
+                if (mode === 'create') {
+                    const diff = document.querySelector('input[name="difficulty"]:checked')?.value || 'normal';
+                    roomState.difficulty = diff;
+                }
+                window.myPeerId = selfId; // Trystero generates this automatically
+
+                // Update UI Feedback
+                const btn = document.getElementById('loginBtn');
+                const msg = document.getElementById('loginMessage');
+                if (btn) btn.innerHTML = '<span class="loading-ring w-4 h-4 border-2"></span> Connecting (Torrent)...';
+                if (msg) {
+                    msg.classList.remove('hidden');
+                    msg.textContent = `Joining Room: ${roomId}...`;
+                }
+
+                try {
+                    // 1. Join Room
+                    this.room = joinRoom(config, roomId);
+                    console.log(`[Trystero] Joined room: ${roomId} as ${selfId}`);
+
+                    // 2. Setup Actions (Data Channels)
+                    // We use one action 'game-msg' for all message types
+                    const [send, get] = this.room.makeAction('game-msg');
+                    this.sendAction = send;
+                    this.getAction = get;
+
+                    // 3. Handle Incoming Data
+                    this.getAction((data, peerId) => {
+                        this.handleData(data, peerId);
+                    });
+
+                    // 4. Handle Peer Events
+                    this.room.onPeerJoin(peerId => {
+                        console.log(`[Trystero] Peer Joined: ${peerId}`);
+                        if (!gameData.isAdmin) {
+                            console.log("Peer found. Sending JOIN request...");
+                            this.send('JOIN', { username: gameData.username });
+                        }
+                        this.send('WELCOME', { from: gameData.username });
+                    });
+
+                    this.room.onPeerLeave(peerId => {
+                        console.log(`[Trystero] Peer Left: ${peerId}`);
+                        if (gameData.isAdmin) {
+                            window.leaderboardData = window.leaderboardData.filter(p => p.id !== peerId);
+                            this.broadcast('SYNC_LEADERBOARD', window.leaderboardData);
+                            this.updateUI();
+                        }
+                    });
+
+                    // 5. Initialize Self in Game
+                    if (gameData.isAdmin) {
+                        // Host Self-Init
+                        roomState.hasStarted = false;
+                        roomState.adminId = selfId;
+                        // roomState.difficulty is already set in init() above
+                        window.leaderboardData = [{
+                            id: selfId,
+                            username: username,
+                            cyber_stars: 0,
+                            isReady: false,
+                            isAdmin: true,
+                            correctFlags: 0
+                        }];
+                        this.updateUI('lobby');
+                    } else {
+                        // Client: Retry JOIN until we are in the leaderboard
+                        // Send immediately first
+                        this.send('JOIN', { username: username });
+
+                        setInterval(() => {
+                            const myEntry = window.leaderboardData.find(u => u.id === window.myPeerId);
+                            if (myEntry) {
+                                // Joined! Keep alive
+                                this.send('PING', { from: username });
+                            } else {
+                                // Retry Join
+                                console.log("Waiting for Host... Resending JOIN...");
+                                this.send('JOIN', { username: username });
+                            }
+                        }, 2000);
+                    }
+
+                } catch (err) {
+                    console.error("Trystero Error:", err);
+                    alert("Gagal connect Trystero: " + err.message);
+                    renderLoginScreen();
+                }
+            }
+
+            // Send to ALL peers (Broadcast)
+            broadcast(type, payload) {
+                if (this.sendAction) {
+                    // Trystero sendAction sends to all by default
+                    this.sendAction({ type, payload });
+                }
+            }
+
+            // Send (Same as broadcast in Trystero basic usage)
+            send(type, payload) {
+                if (this.sendAction) {
+                    this.sendAction({ type, payload });
+                }
+            }
+
+            // Data Handler
+            handleData(data, senderId) {
+                // console.log(`Received ${data.type} from ${senderId}`, data);
+
+                if (gameData.isAdmin) {
+                    // --- HOST LOGIC ---
+                    switch (data.type) {
+                        case 'JOIN':
+                            // Add new player
+                            if (!window.leaderboardData.find(u => u.id === senderId)) {
+                                window.leaderboardData.push({
+                                    id: senderId,
+                                    username: data.payload.username,
+                                    cyber_stars: 0,
+                                    isReady: false,
+                                    isAdmin: false,
+                                    correctFlags: 0
+                                });
+                                this.broadcast('SYNC_LEADERBOARD', window.leaderboardData);
+                                this.broadcast('SYNC_ROOMSTATE', roomState);
+                                this.updateUI();
+                            }
+                            break;
+                        case 'UPDATE_SCORE':
+                            const pIndex = window.leaderboardData.findIndex(u => u.id === senderId);
+                            if (pIndex !== -1) {
+                                window.leaderboardData[pIndex] = { ...window.leaderboardData[pIndex], ...data.payload };
+                                this.broadcast('SYNC_LEADERBOARD', window.leaderboardData);
+                                this.updateUI();
+                            }
+                            break;
+                        case 'READY_STATUS':
+                            const pIdx = window.leaderboardData.findIndex(u => u.id === senderId);
+                            if (pIdx !== -1) {
+                                window.leaderboardData[pIdx].isReady = data.payload.isReady;
+                                this.broadcast('SYNC_LEADERBOARD', window.leaderboardData);
+                                this.updateUI();
+                            }
+                            break;
+                    }
+                } else {
+                    // --- CLIENT LOGIC ---
+                    switch (data.type) {
+                        case 'SYNC_LEADERBOARD':
+                            window.leaderboardData = data.payload;
+                            this.updateUI();
+                            break;
+                        case 'SYNC_ROOMSTATE':
+                            window.roomState = data.payload;
+                            // Update local gameData difficulty to match room
+                            if (window.roomState.difficulty) {
+                                gameData.difficulty = window.roomState.difficulty;
+                            }
+                            // Auto trigger start if in lobby and game just started
+                            if (roomState.hasStarted && document.getElementById('readyBtn') && !gameData.hasCompleted) {
+                                renderGameScreen();
+                            }
+                            break;
+                    }
+                }
+            }
+
+            updateUI(specificScreen = null) {
+                // If explicit screen requested (e.g. 'lobby')
+                if (specificScreen === 'lobby') {
+                    renderLobbyScreen();
+                    return;
+                }
+
+                // Auto-refresh logic based on what's visible
+                if (document.getElementById('usernameInput')) {
+                    // Still on login. 
+                    // Check if we have successfully joined (Are we in the leaderboard?)
+                    const myEntry = window.leaderboardData.find(u => u.id === window.myPeerId);
+                    if (myEntry) {
+                        // We are in! Move to Lobby.
+                        renderLobbyScreen();
+                    }
+                } else if (document.getElementById('readyBtn') || document.getElementById('lobbySection')) {
+                    // In Lobby
+                    if (gameData.isAdmin && roomState.hasStarted) {
+                        renderMonitorScreen();
+                    } else if (!gameData.isAdmin && roomState.hasStarted) {
+                        renderGameScreen();
+                    } else {
+                        renderLobbyScreen();
+                    }
+                } else if (document.getElementById('monitorSection')) {
+                    renderMonitorScreen();
+                }
+            }
+        }
+
+        // Attach to window so HTML can see it
+        window.network = new NetworkManager();
+
+        // --- HELPER FUNCTIONS (Exposed to Window) ---
+        window.switchLoginMode = function (mode) {
+            window.loginMode = mode;
+            const tabJoin = document.getElementById('tabJoin');
+            const tabCreate = document.getElementById('tabCreate');
+            const joinSec = document.getElementById('joinSection');
+            const createSec = document.getElementById('createSection');
+            const btn = document.getElementById('loginBtn');
+
+            if (mode === 'join') {
+                tabJoin.className = "flex-1 py-2 text-xs font-bold rounded-md bg-cyan-600 text-white transition";
+                tabCreate.className = "flex-1 py-2 text-xs font-bold rounded-md text-gray-400 hover:bg-white/5 transition";
+                joinSec.classList.remove('hidden');
+                createSec.classList.add('hidden');
+                btn.textContent = "Gabung Misi";
+            } else {
+                tabJoin.className = "flex-1 py-2 text-xs font-bold rounded-md text-gray-400 hover:bg-white/5 transition";
+                tabCreate.className = "flex-1 py-2 text-xs font-bold rounded-md bg-cyan-600 text-white transition";
+                joinSec.classList.add('hidden');
+                createSec.classList.remove('hidden');
+                btn.textContent = "Buat Operasi Baru";
+            }
+        };
+
+        window.handleP2PLogin = function () {
+            const username = document.getElementById('usernameInput').value.trim();
+            const btn = document.getElementById('loginBtn');
+            const msg = document.getElementById('loginMessage');
+
+            if (!username) {
+                if (msg) { msg.textContent = "Username wajib!"; msg.classList.remove('hidden'); }
+                return;
+            }
+
+            let targetId = null;
+            if (window.loginMode === 'join') {
+                targetId = document.getElementById('roomIdInput').value.trim().toUpperCase();
+                if (!targetId) {
+                    if (msg) { msg.textContent = "Room ID wajib!"; msg.classList.remove('hidden'); }
+                    return;
+                }
+            }
+
+            if (msg) msg.classList.add('hidden');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="loading-ring w-4 h-4 border-2"></span> Initializing...`;
+            }
+
+            // Init Network
+            window.network.init(username, window.loginMode, targetId);
+        };
+
+        window.handleReady = function () {
+            const myUser = window.leaderboardData.find(u => u.id === myPeerId);
+            if (!myUser) return;
+
+            if (gameData.isAdmin) {
+                // Host Starts Game
+                roomState.hasStarted = true;
+                roomState.startTime = Date.now();
+                window.network.broadcast('SYNC_ROOMSTATE', roomState);
+                window.network.updateUI(); // Host UI update
+                renderMonitorScreen();
+            } else {
+                // Client toggle ready
+                const newStatus = !myUser.isReady;
+                window.network.send('READY_STATUS', { isReady: newStatus });
+            }
+        };
+
+        window.handleFlagSubmission = function () {
+            const input = document.getElementById('flagInput');
+            const feedback = document.getElementById('feedbackMessage');
+            const answer = input.value.trim().toLowerCase();
+            const QUESTIONS = window.QUESTIONS_DB[gameData.difficulty] || window.QUESTIONS_DB.normal;
+            const currentQ = QUESTIONS[gameData.currentLevel - 1];
+
+            gameData.totalSubmissions++;
+            gameData.levelAttempts++;
+
+            if (answer === currentQ.flag) {
+                // Correct
+                triggerConfetti();
+                gameData.score += currentQ.score;
+                gameData.cyber_stars += currentQ.score;
+                gameData.correctFlags++;
+                gameData.hintsUsed[gameData.currentLevel] = 0; // Reset hints for next
+                gameData.levelAttempts = 0;
+
+                feedback.textContent = `AKSES DITERIMA! +${currentQ.score} poin.`;
+                feedback.className = "text-sm mt-3 text-center text-green-400 font-bold animate-pulse";
+                feedback.classList.remove('hidden');
+
+                // Update Network
+                network.send('UPDATE_SCORE', {
+                    cyber_stars: gameData.cyber_stars,
+                    correctFlags: gameData.correctFlags
+                });
+
+                // Update local leaderboard immediately (Optimistic UI) regarding of Admin/Client
+                const myIdx = window.leaderboardData.findIndex(u => u.id === myPeerId);
+                if (myIdx !== -1) {
+                    window.leaderboardData[myIdx].cyber_stars = gameData.cyber_stars;
+                    window.leaderboardData[myIdx].correctFlags = gameData.correctFlags;
+                }
+
+                // If Host, broadcast it
+                if (gameData.isAdmin) {
+                    network.broadcast('SYNC_LEADERBOARD', window.leaderboardData);
+                }
+
+                setTimeout(() => {
+                    if (gameData.currentLevel < QUESTIONS.length) {
+                        gameData.currentLevel++;
+                        renderGameScreen();
+                    } else {
+                        gameData.hasCompleted = true;
+                        renderLeaderboard();
+                    }
+                }, 1500);
+
+            } else {
+                // Wrong
+                feedback.textContent = `AKSES DITOLAK. Coba lagi. (${gameData.maxAttempts - gameData.levelAttempts} sisa)`;
+                feedback.className = "text-sm mt-3 text-center text-red-500 font-bold";
+                feedback.classList.remove('hidden');
+                input.classList.add('border-red-500');
+
+                if (gameData.levelAttempts >= gameData.maxAttempts) {
+                    input.disabled = true;
+                    document.getElementById('submitBtn').disabled = true;
+                    feedback.textContent = "SYSTEM LOCKDOWN. Gagal memecahkan sandi.";
+                }
+
+                setTimeout(() => input.classList.remove('border-red-500'), 500);
+            }
+        };
+
+        window.getIncrementalHint = function (flag, stage) {
+            if (stage <= 0) return "";
+            const length = flag.length;
+            const revealCount = Math.ceil((length / 3) * stage);
+            return flag.substring(0, revealCount) + "*".repeat(length - revealCount);
+        };
+
+        window.handleHint = function () {
+            const QUESTIONS = window.QUESTIONS_DB[gameData.difficulty] || window.QUESTIONS_DB.normal;
+            const currentQ = QUESTIONS[gameData.currentLevel - 1];
+            if (!gameData.hintsUsed[gameData.currentLevel]) gameData.hintsUsed[gameData.currentLevel] = 0;
+
+            if (gameData.hintsUsed[gameData.currentLevel] < 3) {
+                gameData.hintsUsed[gameData.currentLevel]++;
+                renderGameScreen();
+            }
+        };
+
+        function triggerConfetti() {
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+            function fire(particleRatio, opts) {
+                confetti(Object.assign({}, defaults, opts, {
+                    particleCount: Math.floor(200 * particleRatio)
+                }));
+            }
+            fire(0.25, { spread: 26, startVelocity: 55 });
+            fire(0.2, { spread: 60 });
+            fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+            fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+            fire(0.1, { spread: 120, startVelocity: 45 });
+        }
+
+        // --- UI RENDER FUNCTIONS ---
+
+        window.renderLoginScreen = function () {
+            const appContainer = document.getElementById('appContainer');
+            appContainer.innerHTML = `
+                <div class="glass-panel p-8 rounded-2xl w-full max-w-md relative z-10 animate-fade-in-up">
+                    <div class="text-center mb-8">
+                        <div class="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-full mx-auto flex items-center justify-center shadow-lg mb-4 animate-float">
+                            <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.85.577-4.147a5.106 5.106 0 013.433-2.914"></path></svg>
+                        </div>
+                        <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">Cyber Stars CTF</h1>
+                        <p class="text-gray-400 text-sm">Peer-to-Peer Multiplayer (Trystero)</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs uppercase tracking-wider text-gray-500 mb-1">Username (Callsign)</label>
+                            <input type="text" id="usernameInput" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition text-white placeholder-gray-600" placeholder="e.g. Neo, Trinity">
+                        </div>
+
+                        <div class="tabs flex space-x-2 mb-4 bg-gray-800/50 p-1 rounded-lg">
+                            <button onclick="switchLoginMode('join')" id="tabJoin" class="flex-1 py-2 text-xs font-bold rounded-md bg-cyan-600 text-white transition">GABUNG ROOM</button>
+                            <button onclick="switchLoginMode('create')" id="tabCreate" class="flex-1 py-2 text-xs font-bold rounded-md text-gray-400 hover:bg-white/5 transition">BUAT ROOM</button>
+                        </div>
+
+                        <div id="joinSection">
+                            <label class="block text-xs uppercase tracking-wider text-gray-500 mb-1">Room ID (Dari Host)</label>
+                            <input type="text" id="roomIdInput" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition text-white placeholder-gray-600" placeholder="e.g. CS-ABCD">
+                        </div>
+                        
+                        <div id="createSection" class="hidden">
+                            <p class="text-xs text-gray-400 bg-gray-800 p-3 rounded border border-gray-700">
+                                Anda akan menjadi <strong>HOST</strong> (Admin). Bagikan Room ID yang muncul nanti kepada teman Anda.
+                            </p>
+                            
+                            <!-- Difficulty Selector -->
+                            <div class="mt-4">
+                                <label class="block text-xs uppercase tracking-wider text-gray-500 mb-2">Tingkat Kesulitan</label>
+                                <div class="flex space-x-2">
+                                    <label class="flex-1 cursor-pointer group">
+                                        <input type="radio" name="difficulty" value="easy" class="peer hidden" checked>
+                                        <div class="p-3 text-xs text-center rounded-lg border border-gray-700 bg-gray-800/50 peer-checked:bg-cyan-900/40 peer-checked:border-cyan-500 peer-checked:text-cyan-400 hover:bg-gray-700/50 transition duration-200">
+                                            <span class="font-bold block mb-1">EASY</span>
+                                            <span class="block text-[10px] opacity-60">Hint + Clue</span>
+                                        </div>
+                                    </label>
+                                    <label class="flex-1 cursor-pointer group">
+                                        <input type="radio" name="difficulty" value="normal" class="peer hidden">
+                                        <div class="p-3 text-xs text-center rounded-lg border border-gray-700 bg-gray-800/50 peer-checked:bg-amber-900/40 peer-checked:border-amber-500 peer-checked:text-amber-400 hover:bg-gray-700/50 transition duration-200">
+                                            <span class="font-bold block mb-1">NORMAL</span>
+                                            <span class="block text-[10px] opacity-60">Clue Only</span>
+                                        </div>
+                                    </label>
+                                    <label class="flex-1 cursor-pointer group">
+                                        <input type="radio" name="difficulty" value="hard" class="peer hidden">
+                                        <div class="p-3 text-xs text-center rounded-lg border border-gray-700 bg-gray-800/50 peer-checked:bg-red-900/40 peer-checked:border-red-500 peer-checked:text-red-400 hover:bg-gray-700/50 transition duration-200">
+                                            <span class="font-bold block mb-1">HARD</span>
+                                            <span class="block text-[10px] opacity-60">No Help</span>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <p id="loginMessage" class="hidden text-red-400 text-xs text-center bg-red-400/10 p-2 rounded border border-red-400/20"></p>
+
+                        <button id="loginBtn" onclick="handleP2PLogin()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-cyan-500/20 transform transition hover:scale-[1.02] active:scale-[0.98]">
+                            Mulai Misi
+                        </button>
+                    </div>
+                </div>
+            `;
+
+        };
+
+        window.renderLobbyScreen = function () {
+            const container = document.getElementById('appContainer');
+            container.classList.remove('justify-start');
+            container.classList.add('justify-center');
+
+            const allReady = window.leaderboardData.length > 0 && window.leaderboardData.every(p => p.isReady);
+            const userIsReady = window.leaderboardData.find(p => p.id === myPeerId)?.isReady || false;
+            const adminUser = window.leaderboardData.find(p => p.id === roomState.adminId);
+            const isAdmin = gameData.isAdmin;
+
+            const playersHtml = window.leaderboardData.map((player) => {
+                const statusIcon = player.isReady
+                    ? `<svg class="w-6 h-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`
+                    : `<svg class="w-6 h-6 text-yellow-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 01-18 0 9 9 0 0118 0z" /></svg>`;
+
+                const isCurrentUser = player.id === myPeerId;
+                const isHost = player.id === roomState.adminId;
+
+                return `
+                    <li class="flex justify-between items-center p-3 mb-2 glass-card transition duration-150 ${isCurrentUser ? 'border-2 border-amber-500' : ''}">
+                        <div class="flex items-center space-x-3">
+                            ${statusIcon}
+                            <span class="text-lg truncate">${player.username} ${isHost ? '(HOST)' : ''} ${isCurrentUser && !isHost ? '(Anda)' : ''}</span>
+                        </div>
+                    </li>
+                `;
+            }).join('');
+
+            let buttonText = "";
+            if (isAdmin) {
+                buttonText = "Mulai Game (Set Semua Siap)";
+            } else if (userIsReady) {
+                buttonText = `Menunggu Host Memulai (${window.leaderboardData.filter(p => p.isReady).length} / ${window.leaderboardData.length})`;
+            } else {
+                buttonText = "Saya Siap (Ready)";
+            }
+
+            const readyBtnHtml = userIsReady && !isAdmin
+                ? `<button id="readyBtn" class="w-full p-3 rounded-xl font-semibold bg-green-600 text-white cursor-not-allowed" disabled>${buttonText}</button>`
+                : `<button id="readyBtn" class="w-full p-3 rounded-xl font-semibold accent-bg hover:shadow-lg transform hover:scale-[1.01] transition duration-150">${buttonText}</button>`;
+
+            container.innerHTML = `
+                <div id="lobbySection" class="w-full max-w-lg p-6 text-center animate-fade-in-up">
+                    <h2 class="text-3xl font-bold accent-text mb-2">Lobby Room Siap</h2>
+                    <p class="mb-2 text-sm opacity-75">Room ID: ${gameData.roomId}</p>
+                    <p class="mb-6 text-sm opacity-75">Host: <span class="font-semibold">${adminUser?.username || 'Memuat...'}</span>. ${isAdmin ? 'Tekan Mulai untuk mengaktifkan semua centang.' : 'Tunggu Host memulai game.'}</p>
+                    
+                    <div class="mb-6 text-left">
+                        <h3 class="text-xl font-bold mb-3">Pemain di Room (${window.leaderboardData.length} User)</h3>
+                        <ul class="space-y-2">
+                            ${playersHtml}
+                        </ul>
+                    </div>
+                    
+                    ${readyBtnHtml}
+
+                    <button id="exitBtn" class="w-full p-2 mt-3 text-sm opacity-70 hover:opacity-100 transition duration-150">
+                        Keluar Room
+                    </button>
+                </div>
+            `;
+
+            if (document.getElementById('readyBtn') && (!userIsReady || isAdmin)) {
+                document.getElementById('readyBtn').addEventListener('click', handleReady);
+            }
+            document.getElementById('exitBtn')?.addEventListener('click', () => {
+                window.location.reload();
+            });
+        };
+
+        window.renderMonitorScreen = function () {
+            const container = document.getElementById('appContainer');
+            container.classList.remove('justify-start');
+            container.classList.add('justify-center');
+
+            const QUESTIONS = window.QUESTIONS_DB[gameData.difficulty] || window.QUESTIONS_DB.normal;
+
+            const playersHtml = window.leaderboardData
+                .filter(p => p.id !== myPeerId) // Admin tidak melihat dirinya sendiri di list
+                .map((player, index) => {
+                    const currentProgress = player.correctFlags < QUESTIONS.length
+                        ? `Level ${player.correctFlags + 1}`
+                        : 'Tantangan Selesai!';
+
+                    const progressColor = player.correctFlags === QUESTIONS.length ? 'text-green-400' : 'text-amber-400';
+
+                    return `
+                    <li class="flex items-center p-3 mb-2 glass-card hover:border-amber-500 transition duration-150">
+                        <span class="font-bold text-xl w-8 text-center text-white opacity-80">${index + 1}</span>
+                        <div class="flex-grow ml-4">
+                            <p class="text-lg font-semibold truncate">${player.username}</p>
+                            <p class="text-sm opacity-70">Skor: ${player.cyber_stars} ⭐</p>
+                        </div>
+                        <div class="text-right">
+                             <p class="text-md font-bold ${progressColor}">${currentProgress}</p>
+                             <p class="text-sm opacity-70">Flags: ${player.correctFlags}/${QUESTIONS.length}</p>
+                        </div>
+                    </li>
+                    `;
+                }).join('');
+
+            container.innerHTML = `
+                <div id="monitorSection" class="w-full max-w-lg p-6 text-center animate-fade-in-up">
+                    <h2 class="text-3xl font-bold accent-text mb-2">MODE MONITOR HOST</h2>
+                    <p class="mb-2 text-sm opacity-75">Room ID: <span class="text-cyan-400 font-mono text-lg">${gameData.roomId}</span></p>
+                    <p class="mb-6 text-sm text-green-400 font-semibold">Anda adalah Host. Game Sedang Berjalan.</p>
+                    
+                    <div class="p-4 glass-card mb-6">
+                         <p class="text-lg font-bold">Host:</p>
+                         <p class="text-xl font-semibold accent-text">${gameData.username}</p>
+                    </div>
+
+                    <div class="mb-6 text-left">
+                        <h3 class="text-xl font-bold mb-3">Leaderboard Live Pemain (${window.leaderboardData.length - 1} User)</h3>
+                        <ul class="space-y-2">
+                            ${playersHtml || '<li class="p-4 glass-card text-center opacity-70">Belum ada pemain yang bergabung selain Host.</li>'}
+                        </ul>
+                    </div>
+                    
+                    <button id="exitBtn" class="w-full p-3 rounded-xl font-semibold bg-red-700 hover:bg-red-800 text-white transform hover:scale-[1.01] transition duration-150">
+                        Keluar Room
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('exitBtn')?.addEventListener('click', () => {
+                window.location.reload();
+            });
+        };
+
+        window.renderGameScreen = function () {
+            const container = document.getElementById('appContainer');
+            container.classList.remove('justify-center');
+            container.classList.add('justify-start');
+
+            const currentLevel = gameData.currentLevel;
+            const QUESTIONS = window.QUESTIONS_DB[gameData.difficulty] || window.QUESTIONS_DB.normal;
+            // Removed duplicate currentLevel declaration
+            const currentQuestion = QUESTIONS[currentLevel - 1];
+            if (!currentQuestion) {
+                gameData.hasCompleted = true;
+                renderLeaderboard();
+                return;
+            }
+
+            const attemptsLeft = gameData.maxAttempts - gameData.levelAttempts;
+            const currentHintsUsed = gameData.hintsUsed[currentLevel] || 0;
+            const maxHints = 3;
+            const hintsLeft = maxHints - currentHintsUsed;
+
+            const codeDisplay = currentQuestion.level === 10
+                ? `<pre class="whitespace-pre-wrap">${currentQuestion.code}</pre>`
+                : currentQuestion.code;
+
+            const showHints = gameData.difficulty === 'easy';
+            const showClues = gameData.difficulty === 'easy' || gameData.difficulty === 'normal';
+
+            const hintBtnDisabled = hintsLeft <= 0 || attemptsLeft <= 0;
+            const hintBtnClass = hintBtnDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-amber-600';
+
+            const displayedHint = getIncrementalHint(currentQuestion.flag, currentHintsUsed);
+            const hintMessageClass = currentHintsUsed > 0 ? 'text-yellow-400' : 'hidden';
+
+            const cluesHtml = showClues ? `
+                <div class="mb-4">
+                    <h4 class="text-md font-semibold mb-2">Clue Tambahan:</h4>
+                    <ul class="list-disc list-inside space-y-1 ml-4 opacity-70">
+                        ${currentQuestion.clues.map(clue => `<li>${clue}</li>`).join('')}
+                    </ul>
+                </div>
+            ` : '';
+
+            const hintButtonHtml = showHints ? `
+                <button id="hintBtn" class="p-2 text-xs bg-amber-700 rounded-lg transition duration-150 ${hintBtnClass}" ${hintBtnDisabled ? 'disabled' : ''}>
+                    Petunjuk (${hintsLeft} / ${maxHints})
+                </button>
+            ` : '';
+
+            const hintMessageHtml = `
+                <p id="hintMessage" class="text-sm mt-3 mb-3 text-center ${hintMessageClass}">
+                    ${currentHintsUsed > 0 ? `[PETUNJUK ${currentHintsUsed}/3] Flag terungkap: "${displayedHint}"` : ''}
+                </p>
+            `;
+
+            container.innerHTML = `
+                <div class="w-full flex justify-between items-center mb-6 p-4 glass-card animate-fade-in-up">
+                    <div class="text-left">
+                        <p class="text-sm opacity-75">Room ID:</p>
+                        <h3 class="text-xl font-bold accent-text">${gameData.roomId}</h3>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-sm opacity-75">User:</p>
+                        <h3 class="text-xl font-bold">${gameData.username}</h3>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm opacity-75">Skor (Cyberstars):</p>
+                        <h3 class="text-xl font-bold">${gameData.cyber_stars} ⭐</h3>
+                    </div>
+                </div>
+
+                <div class="w-full p-6 glass-card mb-6 animate-fade-in-up" style="animation-delay: 0.1s;">
+                    <h2 class="text-2xl font-bold mb-2 accent-text">Level ${currentQuestion.level} / ${QUESTIONS.length}</h2>
+                    <p class="text-lg font-semibold mb-4">${currentQuestion.title}</p>
+                    <p class="mb-4 opacity-80">${currentQuestion.description}</p>
+                    ${cluesHtml}
+                    <div class="p-4 bg-gray-700 bg-opacity-30 rounded-lg font-mono text-sm break-all">
+                        <h4 class="text-md font-semibold mb-1 accent-text">Kode Rahasia:</h4>
+                        ${codeDisplay}
+                    </div>
+                </div>
+
+                <div class="w-full p-6 glass-card animate-fade-in-up" style="animation-delay: 0.2s;">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="text-xl font-bold">Masukkan Flag</h4>
+                        ${hintButtonHtml}
+                    </div>
+
+                    <p class="text-sm mb-3 ${attemptsLeft <= 1 ? 'text-red-400' : 'opacity-70'}">Sisa percobaan: ${attemptsLeft} kali</p>
+                    ${hintMessageHtml}
+
+                    <input type="text" id="flagInput" placeholder="Tulis jawaban di sini (huruf kecil, tanpa tanda baca)" 
+                           class="w-full p-3 rounded-xl bg-gray-700 bg-opacity-50 border border-gray-600 focus:ring-amber-500 focus:border-amber-500 mb-3 transition duration-200 text-white" 
+                           oninput="this.value = this.value.toLowerCase().replace(/[^a-z0-9 ]/g, '')"
+                           ${attemptsLeft <= 0 ? 'disabled' : ''}>
+                           
+                    <button id="submitBtn" class="w-full p-3 rounded-xl font-semibold accent-bg hover:shadow-lg transform hover:scale-[1.01] transition duration-150"
+                            ${attemptsLeft <= 0 ? 'disabled' : ''}>
+                        Kirim Flag
+                    </button>
+                    
+                    <p id="feedbackMessage" class="text-sm mt-3 text-center hidden">Feedback</p>
+                </div>
+            `;
+
+            document.getElementById('submitBtn').addEventListener('click', handleFlagSubmission);
+            document.getElementById('hintBtn').addEventListener('click', handleHint);
+        };
+
+        window.renderLeaderboard = function () {
+            const container = document.getElementById('appContainer');
+            container.classList.remove('justify-start');
+            container.classList.add('justify-center');
+
+            const score = gameData.cyber_stars;
+            const QUESTIONS = window.QUESTIONS_DB[gameData.difficulty] || window.QUESTIONS_DB.normal;
+            const maxScore = QUESTIONS.reduce((sum, q) => sum + q.score, 0);
+            const winRate = gameData.totalSubmissions > 0
+                ? ((gameData.correctFlags / gameData.totalSubmissions) * 100).toFixed(1)
+                : 0;
+
+            const message = gameData.isAdmin
+                ? "Sesi Monitoring Selesai. Lihat hasil akhir di bawah."
+                : (score === maxScore
+                    ? "Selamat! Anda adalah Master Cipher sejati!"
+                    : "Hebat! Anda menyelesaikan semua tantangan. Lihat peringkat Anda!");
+
+            // Sort leaderboard
+            const sortedLeaderboard = [...window.leaderboardData].sort((a, b) => b.cyber_stars - a.cyber_stars);
+            const top3Data = sortedLeaderboard.slice(0, 3);
+            const userRank = sortedLeaderboard.findIndex(p => p.id === myPeerId) + 1;
+            const userData = sortedLeaderboard.find(p => p.id === myPeerId);
+
+            const leaderboardHtml = top3Data.length > 0
+                ? top3Data.map((player, index) => `
+                    <li class="flex justify-between items-center p-4 mb-2 glass-card hover:border-amber-500 transition duration-150 ${player.id === myPeerId ? 'bg-amber-900 bg-opacity-30 border-amber-500' : ''}">
+                        <span class="font-bold text-xl w-8 text-center accent-text">${index + 1}</span>
+                        <span class="flex-grow text-lg truncate">${player.username} ${player.id === myPeerId ? '(Anda)' : ''}</span>
+                        <span class="text-lg font-mono">${player.cyber_stars} ⭐</span>
+                    </li>
+                `).join('')
+                : '<p class="text-center opacity-70">Memuat Leaderboard...</p>';
+
+            let personalRankHtml = '';
+            if (userRank > 3 && userData) {
+                personalRankHtml = `
+                    <div class="mt-6 pt-4 border-t border-gray-700">
+                        <h4 class="text-lg font-bold mb-2">Peringkat Anda Saat Ini</h4>
+                        <div class="flex justify-between items-center p-4 glass-card bg-gray-800 border-amber-500 border-2">
+                            <span class="font-bold text-xl w-8 text-center accent-text">#${userRank}</span>
+                            <span class="flex-grow text-lg truncate">${userData.username} (Anda)</span>
+                            <span class="text-lg font-mono">${userData.cyber_stars} ⭐</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                <div id="leaderboardSection" class="w-full max-w-lg text-center p-6 animate-fade-in-up">
+                    <h2 class="text-4xl font-extrabold accent-text mb-2">${gameData.isAdmin ? 'SESI SELESAI' : 'TANTANGAN SELESAI!'}</h2>
+                    <p class="text-xl mb-6 opacity-90">${message}</p>
+                    
+                    <div class="p-5 glass-card mb-8 flex justify-around">
+                         ${!gameData.isAdmin ? `
+                         <div class="flex-1 text-center border-r border-gray-700">
+                            <p class="text-sm opacity-75">Skor Total:</p>
+                            <h3 class="text-4xl font-bold accent-text">${score} ⭐</h3>
+                         </div>
+                         <div class="flex-1 text-center">
+                            <p class="text-sm opacity-75">Winrate:</p>
+                            <h3 class="text-4xl font-bold accent-text">${winRate}%</h3>
+                         </div>
+                         ` : `
+                         <div class="flex-1 text-center">
+                            <p class="text-sm opacity-75">Role:</p>
+                            <h3 class="text-4xl font-bold accent-text">HOST</h3>
+                         </div>
+                         `}
+                    </div>
+
+                    <h3 class="text-2xl font-bold mb-4">Leaderboard Room Top 3</h3>
+                    <p class="text-sm opacity-70 mb-4">Room ID: ${gameData.roomId}</p>
+
+                    <ul class="text-left w-full">
+                        ${leaderboardHtml}
+                    </ul>
+                    
+                    ${personalRankHtml}
+
+                    <button id="restartBtn" class="mt-8 p-3 rounded-xl font-semibold accent-bg hover:shadow-lg transform hover:scale-[1.01] transition duration-150">
+                        Mulai Lagi / Ganti Room
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('restartBtn').addEventListener('click', () => {
+                window.location.reload();
+            });
+        };
+
+        // --- Theme Toggle Logic ---
+        function initializeTheme() {
+            const storedTheme = localStorage.getItem('theme');
+            let isDarkMode = storedTheme === 'dark';
+
+            if (storedTheme === null) {
+                isDarkMode = true;
+                localStorage.setItem('theme', 'dark');
+            }
+
+            if (isDarkMode) {
+                document.body.classList.remove('light-mode');
+                document.getElementById('sunIcon').classList.remove('hidden');
+                document.getElementById('moonIcon').classList.add('hidden');
+            } else {
+                document.body.classList.add('light-mode');
+                document.getElementById('sunIcon').classList.add('hidden');
+                document.getElementById('moonIcon').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            const isCurrentlyLight = document.body.classList.contains('light-mode');
+
+            if (isCurrentlyLight) {
+                document.body.classList.remove('light-mode');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                document.body.classList.add('light-mode');
+                localStorage.setItem('theme', 'light');
+            }
+
+            document.getElementById('moonIcon').classList.toggle('hidden', !isCurrentlyLight);
+            document.getElementById('sunIcon').classList.toggle('hidden', isCurrentlyLight);
+        });
+
+        // --- Startup ---
+        window.onload = function () {
+            initializeTheme();
+            renderLoginScreen();
+        };
+
+    </script>
+</body>
+
+</html>
