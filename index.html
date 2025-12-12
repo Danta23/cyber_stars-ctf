@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
     <!-- Confetti Library -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js"></script>
+    <meta name="google-site-verification" content="FrSlQk0gM0tEciwmn3KPNv86aGmlm2Q0t9q1P1DrmKQ" />
 
     <style>
         /* Mengatur font default menjadi Inter */
@@ -394,7 +395,9 @@
                                     cyber_stars: 0,
                                     isReady: false,
                                     isAdmin: false,
-                                    correctFlags: 0
+                                    correctFlags: 0,
+                                    currentLevel: 1,
+                                    isFinished: false
                                 });
                                 this.broadcast('SYNC_LEADERBOARD', window.leaderboardData);
                                 this.broadcast('SYNC_ROOMSTATE', roomState);
@@ -432,8 +435,9 @@
                                 gameData.difficulty = window.roomState.difficulty;
                             }
                             // Auto trigger start if in lobby and game just started
+                            // Auto trigger start if in lobby and game just started
                             if (roomState.hasStarted && document.getElementById('readyBtn') && !gameData.hasCompleted) {
-                                renderGameScreen();
+                                startCountdown();
                             }
                             break;
                     }
@@ -484,14 +488,14 @@
             const btn = document.getElementById('loginBtn');
 
             if (mode === 'join') {
-                tabJoin.className = "flex-1 py-2 text-xs font-bold rounded-md bg-cyan-600 text-white transition";
+                tabJoin.className = "flex-1 py-2 text-xs font-bold rounded-md bg-amber-600 text-white transition";
                 tabCreate.className = "flex-1 py-2 text-xs font-bold rounded-md text-gray-400 hover:bg-white/5 transition";
                 joinSec.classList.remove('hidden');
                 createSec.classList.add('hidden');
                 btn.textContent = "Gabung Misi";
             } else {
                 tabJoin.className = "flex-1 py-2 text-xs font-bold rounded-md text-gray-400 hover:bg-white/5 transition";
-                tabCreate.className = "flex-1 py-2 text-xs font-bold rounded-md bg-cyan-600 text-white transition";
+                tabCreate.className = "flex-1 py-2 text-xs font-bold rounded-md bg-amber-600 text-white transition";
                 joinSec.classList.add('hidden');
                 createSec.classList.remove('hidden');
                 btn.textContent = "Buat Operasi Baru";
@@ -569,9 +573,14 @@
                 feedback.classList.remove('hidden');
 
                 // Update Network
+                const nextLevel = gameData.currentLevel + 1;
+                const isFinished = gameData.currentLevel >= QUESTIONS.length;
+
                 network.send('UPDATE_SCORE', {
                     cyber_stars: gameData.cyber_stars,
-                    correctFlags: gameData.correctFlags
+                    correctFlags: gameData.correctFlags,
+                    currentLevel: nextLevel,
+                    isFinished: isFinished
                 });
 
                 // Update local leaderboard immediately (Optimistic UI) regarding of Admin/Client
@@ -579,6 +588,8 @@
                 if (myIdx !== -1) {
                     window.leaderboardData[myIdx].cyber_stars = gameData.cyber_stars;
                     window.leaderboardData[myIdx].correctFlags = gameData.correctFlags;
+                    window.leaderboardData[myIdx].currentLevel = nextLevel;
+                    window.leaderboardData[myIdx].isFinished = isFinished;
                 }
 
                 // If Host, broadcast it
@@ -606,7 +617,60 @@
                 if (gameData.levelAttempts >= gameData.maxAttempts) {
                     input.disabled = true;
                     document.getElementById('submitBtn').disabled = true;
-                    feedback.textContent = "SYSTEM LOCKDOWN. Gagal memecahkan sandi.";
+                    feedback.textContent = "GAGAL! MEMAKSA AKSES KE LEVEL BERIKUTNYA... (0 POIN)";
+
+                    setTimeout(() => {
+                        gameData.hintsUsed[gameData.currentLevel] = 0;
+                        gameData.levelAttempts = 0;
+
+                        // Treat as if completed but no score added
+                        // But need to update correctFlags count? User said "tidak mendapatkan score"
+                        // I assume correctFlags also doesn't increment.
+
+                        // We still need to sync score? No change in score, so no need to send UPDATE_SCORE.
+                        // But we might want to sync progress if we tracked "current level" in leaderboard, 
+                        // but currently we track "correctFlags". 
+                        // If they skip, their "correctFlags" stays same, but they move to next question locally.
+
+                        // Wait, if they skip, and we use "correctFlags" to determine "Level X" in monitor...
+                        // Monitor says: `Level ${player.correctFlags + 1}`. 
+                        // If they skip level 1 (0 correct), monitor will still say Level 1.
+                        // This might be confusing. 
+                        // User requirement: "dipaksa lompat/lanjut ke level selanjutnya".
+                        // If I assume the Monitor displays "Level X" based on correct flags, the Monitor will be out of sync with actual screen.
+                        // However, changing Monitor logic is complex. 
+                        // Given the instructions, I will just move them locally.
+
+                        if (gameData.currentLevel < QUESTIONS.length) {
+                            gameData.currentLevel++;
+
+                            // SYNC SKIP PROGRESS
+                            network.send('UPDATE_SCORE', {
+                                cyber_stars: gameData.cyber_stars,
+                                correctFlags: gameData.correctFlags,
+                                currentLevel: gameData.currentLevel,
+                                isFinished: false
+                            });
+                            const myIdx = window.leaderboardData.findIndex(u => u.id === myPeerId);
+                            if (myIdx !== -1) window.leaderboardData[myIdx].currentLevel = gameData.currentLevel;
+
+                            renderGameScreen();
+                        } else {
+                            gameData.hasCompleted = true;
+
+                            // SYNC FINISH PROGRESS
+                            network.send('UPDATE_SCORE', {
+                                cyber_stars: gameData.cyber_stars,
+                                correctFlags: gameData.correctFlags,
+                                currentLevel: gameData.currentLevel + 1,
+                                isFinished: true
+                            });
+                            const myIdx = window.leaderboardData.findIndex(u => u.id === myPeerId);
+                            if (myIdx !== -1) window.leaderboardData[myIdx].isFinished = true;
+
+                            renderLeaderboard();
+                        }
+                    }, 2000);
                 }
 
                 setTimeout(() => input.classList.remove('border-red-500'), 500);
@@ -652,27 +716,27 @@
             appContainer.innerHTML = `
                 <div class="glass-panel p-8 rounded-2xl w-full max-w-md relative z-10 animate-fade-in-up">
                     <div class="text-center mb-8">
-                        <div class="w-20 h-20 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-full mx-auto flex items-center justify-center shadow-lg mb-4 animate-float">
+                        <div class="w-20 h-20 bg-gradient-to-tr from-yellow-400 to-amber-600 rounded-full mx-auto flex items-center justify-center shadow-lg mb-4 animate-float">
                             <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.2-2.85.577-4.147a5.106 5.106 0 013.433-2.914"></path></svg>
                         </div>
-                        <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500 mb-2">Cyber Stars CTF</h1>
+                        <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-400 to-amber-500 mb-2">Cyber Stars CTF</h1>
                         <p class="text-gray-400 text-sm">Peer-to-Peer Multiplayer (Trystero)</p>
                     </div>
 
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs uppercase tracking-wider text-gray-500 mb-1">Username (Callsign)</label>
-                            <input type="text" id="usernameInput" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition text-white placeholder-gray-600" placeholder="e.g. Neo, Trinity">
+                            <input type="text" id="usernameInput" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition text-white placeholder-gray-600" placeholder="e.g. Neo, Trinity">
                         </div>
 
                         <div class="tabs flex space-x-2 mb-4 bg-gray-800/50 p-1 rounded-lg">
-                            <button onclick="switchLoginMode('join')" id="tabJoin" class="flex-1 py-2 text-xs font-bold rounded-md bg-cyan-600 text-white transition">GABUNG ROOM</button>
+                            <button onclick="switchLoginMode('join')" id="tabJoin" class="flex-1 py-2 text-xs font-bold rounded-md bg-amber-600 text-white transition">GABUNG ROOM</button>
                             <button onclick="switchLoginMode('create')" id="tabCreate" class="flex-1 py-2 text-xs font-bold rounded-md text-gray-400 hover:bg-white/5 transition">BUAT ROOM</button>
                         </div>
 
                         <div id="joinSection">
                             <label class="block text-xs uppercase tracking-wider text-gray-500 mb-1">Room ID (Dari Host)</label>
-                            <input type="text" id="roomIdInput" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition text-white placeholder-gray-600" placeholder="e.g. CS-ABCD">
+                            <input type="text" id="roomIdInput" class="w-full bg-gray-800/50 border border-gray-700/50 rounded-lg px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 transition text-white placeholder-gray-600" placeholder="e.g. CS-ABCD">
                         </div>
                         
                         <div id="createSection" class="hidden">
@@ -711,7 +775,7 @@
 
                         <p id="loginMessage" class="hidden text-red-400 text-xs text-center bg-red-400/10 p-2 rounded border border-red-400/20"></p>
 
-                        <button id="loginBtn" onclick="handleP2PLogin()" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-cyan-500/20 transform transition hover:scale-[1.02] active:scale-[0.98]">
+                        <button id="loginBtn" onclick="handleP2PLogin()" class="w-full bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-amber-500/20 transform transition hover:scale-[1.02] active:scale-[0.98]">
                             Mulai Misi
                         </button>
                     </div>
@@ -800,11 +864,11 @@
             const playersHtml = window.leaderboardData
                 .filter(p => p.id !== myPeerId) // Admin tidak melihat dirinya sendiri di list
                 .map((player, index) => {
-                    const currentProgress = player.correctFlags < QUESTIONS.length
-                        ? `Level ${player.correctFlags + 1}`
-                        : 'Tantangan Selesai!';
+                    const currentProgress = player.isFinished
+                        ? 'Tantangan Selesai!'
+                        : `Level ${player.currentLevel || (player.correctFlags + 1)}`;
 
-                    const progressColor = player.correctFlags === QUESTIONS.length ? 'text-green-400' : 'text-amber-400';
+                    const progressColor = player.isFinished ? 'text-green-400' : 'text-amber-400';
 
                     return `
                     <li class="flex items-center p-3 mb-2 glass-card hover:border-amber-500 transition duration-150">
@@ -1084,6 +1148,34 @@
             document.getElementById('moonIcon').classList.toggle('hidden', !isCurrentlyLight);
             document.getElementById('sunIcon').classList.toggle('hidden', isCurrentlyLight);
         });
+
+        window.startCountdown = function () {
+            const container = document.getElementById('appContainer');
+            // Clear current content
+
+            let count = 3;
+
+            const renderCount = (n) => {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full animate-pulse z-50 pt-20">
+                         <h1 class="text-9xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 drop-shadow-lg scale-150 transition-all duration-500">${n}</h1>
+                         <p class="text-xl text-cyan-200 mt-8 tracking-[0.5em] uppercase font-bold">Mempersiapkan Lingkungan...</p>
+                    </div>
+                 `;
+            };
+
+            renderCount(count);
+
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    renderCount(count);
+                } else {
+                    clearInterval(timer);
+                    renderGameScreen();
+                }
+            }, 1000);
+        };
 
         // --- Startup ---
         window.onload = function () {
